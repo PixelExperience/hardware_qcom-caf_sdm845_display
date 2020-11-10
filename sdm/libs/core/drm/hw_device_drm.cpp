@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -74,6 +74,13 @@
 #ifndef DRM_FORMAT_MOD_QCOM_TIGHT
 #define DRM_FORMAT_MOD_QCOM_TIGHT fourcc_mod_code(QCOM, 0x4)
 #endif
+#ifndef DRM_MODE_FLAG_SUPPORTS_YUV422
+#define DRM_MODE_FLAG_SUPPORTS_YUV422 (1<<21)
+#endif
+#ifndef DRM_MODE_FLAG_SUPPORTS_YUV420
+#define DRM_MODE_FLAG_SUPPORTS_YUV420 (1<<22)
+#endif
+
 
 using std::string;
 using std::to_string;
@@ -490,6 +497,7 @@ void HWDeviceDRM::InitializeConfigs() {
     }
     PopulateDisplayAttributes(i);
   }
+
 }
 
 DisplayError HWDeviceDRM::PopulateDisplayAttributes(uint32_t index) {
@@ -515,6 +523,7 @@ DisplayError HWDeviceDRM::PopulateDisplayAttributes(uint32_t index) {
     topology = connector_info_.modes[index].topology;
   }
 
+  display_attributes_[index].vic = connector_info_.modes[index].vic;
   display_attributes_[index].x_pixels = mode.hdisplay;
   display_attributes_[index].y_pixels = mode.vdisplay;
   display_attributes_[index].fps = mode.vrefresh;
@@ -553,15 +562,29 @@ DisplayError HWDeviceDRM::PopulateDisplayAttributes(uint32_t index) {
   display_attributes_[index].y_dpi = (FLOAT(mode.vdisplay) * 25.4f) / FLOAT(mm_height);
   SetTopology(topology, &display_attributes_[index].topology);
 
+  if (mode.flags & DRM_MODE_FLAG_SUPPORTS_RGB) {
+    display_attributes_[index].pixel_formats = DisplayInterfaceFormat::kFormatRGB;
+  }
+  if (mode.flags & DRM_MODE_FLAG_SUPPORTS_YUV422) {
+    display_attributes_[index].pixel_formats |= DisplayInterfaceFormat::kFormatYCbCr422;
+    display_attributes_[index].is_yuv = true;
+  }
+  if (mode.flags & DRM_MODE_FLAG_SUPPORTS_YUV420) {
+    display_attributes_[index].pixel_formats |= DisplayInterfaceFormat::kFormatYCbCr420;
+    display_attributes_[index].is_yuv = true;
+  }
+
   DLOGI("Display attributes[%d]: WxH: %dx%d, DPI: %fx%f, FPS: %d, LM_SPLIT: %d, V_BACK_PORCH: %d," \
-        " V_FRONT_PORCH: %d, V_PULSE_WIDTH: %d, V_TOTAL: %d, H_TOTAL: %d, CLK: %dKHZ, TOPOLOGY: %d",
+        " V_FRONT_PORCH: %d, V_PULSE_WIDTH: %d, V_TOTAL: %d, H_TOTAL: %d, CLK: %dKHZ," \
+        " TOPOLOGY: %d, PIXEL_FORMATS: %d, VIC: %d",
         index, display_attributes_[index].x_pixels, display_attributes_[index].y_pixels,
         display_attributes_[index].x_dpi, display_attributes_[index].y_dpi,
         display_attributes_[index].fps, display_attributes_[index].is_device_split,
         display_attributes_[index].v_back_porch, display_attributes_[index].v_front_porch,
         display_attributes_[index].v_pulse_width, display_attributes_[index].v_total,
         display_attributes_[index].h_total, display_attributes_[index].clock_khz,
-        display_attributes_[index].topology);
+        display_attributes_[index].topology, display_attributes_[index].pixel_formats,
+        display_attributes_[index].vic);
 
   return kErrorNone;
 }
@@ -716,28 +739,6 @@ void HWDeviceDRM::GetHWDisplayPortAndMode() {
   return;
 }
 
-void HWDeviceDRM::GetHWPanelMaxBrightness() {
-  char brightness[kMaxStringLength] = {0};
-  string kMaxBrightnessNode = "/sys/class/backlight/panel0-backlight/max_brightness";
-
-  hw_panel_info_.panel_max_brightness = 255;
-  int fd = Sys::open_(kMaxBrightnessNode.c_str(), O_RDONLY);
-  if (fd < 0) {
-    DLOGW("Failed to open max brightness node = %s, error = %s", kMaxBrightnessNode.c_str(),
-          strerror(errno));
-    return;
-  }
-
-  if (Sys::pread_(fd, brightness, sizeof(brightness), 0) > 0) {
-    hw_panel_info_.panel_max_brightness = atoi(brightness);
-    DLOGI("Max brightness level = %d", hw_panel_info_.panel_max_brightness);
-  } else {
-    DLOGW("Failed to read max brightness level. error = %s", strerror(errno));
-  }
-
-  Sys::close_(fd);
-}
-
 DisplayError HWDeviceDRM::GetActiveConfig(uint32_t *active_config) {
   if (IsResolutionSwitchEnabled()) {
     *active_config = current_mode_index_;
@@ -777,6 +778,19 @@ DisplayError HWDeviceDRM::GetHWPanelInfo(HWPanelInfo *panel_info) {
   return kErrorNone;
 }
 
+DisplayError HWDeviceDRM::SetDisplayFormat(uint32_t index, DisplayInterfaceFormat fmt) {
+  if (!IsResolutionSwitchEnabled()) {
+    return kErrorNotSupported;
+  }
+
+  if (index >= display_attributes_.size()) {
+    DLOGE("Invalid mode index %d mode size %d", index, UINT32(display_attributes_.size()));
+    return kErrorParameters;
+  }
+  display_attributes_[index].pref_fmt = fmt;
+  return kErrorNone;
+}
+
 DisplayError HWDeviceDRM::SetDisplayAttributes(uint32_t index) {
   if (!IsResolutionSwitchEnabled()) {
     return kErrorNotSupported;
@@ -792,14 +806,16 @@ DisplayError HWDeviceDRM::SetDisplayAttributes(uint32_t index) {
   UpdateMixerAttributes();
 
   DLOGI("Display attributes[%d]: WxH: %dx%d, DPI: %fx%f, FPS: %d, LM_SPLIT: %d, V_BACK_PORCH: %d," \
-        " V_FRONT_PORCH: %d, V_PULSE_WIDTH: %d, V_TOTAL: %d, H_TOTAL: %d, CLK: %dKHZ, TOPOLOGY: %d",
+        " V_FRONT_PORCH: %d, V_PULSE_WIDTH: %d, V_TOTAL: %d, H_TOTAL: %d, CLK: %dKHZ," \
+        " TOPOLOGY: %d, PIXEL_FORMATS: %d, VIC: %d",
         index, display_attributes_[index].x_pixels, display_attributes_[index].y_pixels,
         display_attributes_[index].x_dpi, display_attributes_[index].y_dpi,
         display_attributes_[index].fps, display_attributes_[index].is_device_split,
         display_attributes_[index].v_back_porch, display_attributes_[index].v_front_porch,
         display_attributes_[index].v_pulse_width, display_attributes_[index].v_total,
         display_attributes_[index].h_total, display_attributes_[index].clock_khz,
-        display_attributes_[index].topology);
+        display_attributes_[index].topology, display_attributes_[index].pixel_formats,
+        display_attributes_[index].vic);
 
   return kErrorNone;
 }
@@ -1118,6 +1134,19 @@ void HWDeviceDRM::SetupAtomic(HWLayers *hw_layers, bool validate) {
     pending_doze_ = false;
   }
 
+  // Reset mode flag before setting the preferred format
+  current_mode.flags &= UINT32(~(DRM_MODE_FLAG_SUPPORTS_RGB | DRM_MODE_FLAG_SUPPORTS_YUV422 |
+                               DRM_MODE_FLAG_SUPPORTS_YUV420));
+
+  if(display_attributes_[index].pref_fmt == DisplayInterfaceFormat::kFormatRGB) {
+    current_mode.flags |= DRM_MODE_FLAG_SUPPORTS_RGB;
+  } else if (display_attributes_[index].pref_fmt == DisplayInterfaceFormat::kFormatYCbCr422 ||
+             display_attributes_[index].pref_fmt == DisplayInterfaceFormat::kFormatYCbCr422d) {
+    current_mode.flags |= DRM_MODE_FLAG_SUPPORTS_YUV422;
+  } else if (display_attributes_[index].pref_fmt == DisplayInterfaceFormat::kFormatYCbCr420 ||
+             display_attributes_[index].pref_fmt == DisplayInterfaceFormat::kFormatYCbCr420d){
+    current_mode.flags |= DRM_MODE_FLAG_SUPPORTS_YUV420;
+  }
   drm_atomic_intf_->Perform(DRMOps::CRTC_SET_MODE, token_.crtc_id, &current_mode);
 
   if (!validate && (hw_layer_info.set_idle_time_ms >= 0)) {
@@ -1526,59 +1555,7 @@ DisplayError HWDeviceDRM::SetRefreshRate(uint32_t refresh_rate) {
   return kErrorNotSupported;
 }
 
-DisplayError HWDeviceDRM::SetPanelBrightness(int level) {
-  DisplayError err = kErrorNone;
-  char buffer[kMaxSysfsCommandLength] = {0};
 
-  DLOGV_IF(kTagDriverConfig, "Set brightness level to %d", level);
-  int fd = Sys::open_(kBrightnessNode, O_RDWR);
-  if (fd < 0) {
-    DLOGV_IF(kTagDriverConfig, "Failed to open node = %s, error = %s ", kBrightnessNode,
-             strerror(errno));
-    return kErrorFileDescriptor;
-  }
-
-  int32_t bytes = snprintf(buffer, kMaxSysfsCommandLength, "%d\n", level);
-  ssize_t ret = Sys::pwrite_(fd, buffer, static_cast<size_t>(bytes), 0);
-  if (ret <= 0) {
-    DLOGV_IF(kTagDriverConfig, "Failed to write to node = %s, error = %s ", kBrightnessNode,
-             strerror(errno));
-    err = kErrorHardware;
-  }
-
-  Sys::close_(fd);
-
-  return err;
-}
-
-DisplayError HWDeviceDRM::GetPanelBrightness(int *level) {
-  DisplayError err = kErrorNone;
-  char brightness[kMaxStringLength] = {0};
-
-  if (!level) {
-    DLOGV_IF(kTagDriverConfig, "Invalid input, null pointer.");
-    return kErrorParameters;
-  }
-
-  int fd = Sys::open_(kBrightnessNode, O_RDWR);
-  if (fd < 0) {
-    DLOGV_IF(kTagDriverConfig, "Failed to open brightness node = %s, error = %s", kBrightnessNode,
-             strerror(errno));
-    return kErrorFileDescriptor;
-  }
-
-  if (Sys::pread_(fd, brightness, sizeof(brightness), 0) > 0) {
-    *level = atoi(brightness);
-    DLOGV_IF(kTagDriverConfig, "Brightness level = %d", *level);
-  } else {
-    DLOGV_IF(kTagDriverConfig, "Failed to read panel brightness");
-    err = kErrorHardware;
-  }
-
-  Sys::close_(fd);
-
-  return err;
-}
 
 DisplayError HWDeviceDRM::GetHWScanInfo(HWScanInfo *scan_info) {
   return kErrorNotSupported;
