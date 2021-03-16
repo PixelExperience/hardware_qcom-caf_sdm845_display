@@ -16,6 +16,24 @@
       "message": "Please test and let me know if it breaks anything on your device. It was tested to be fine on polaris",
       "revId": "362ccfe042039040e55e8063c98d702b73c7af58",
       "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "83b28d7d_62d0b14b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000482
+      },
+      "writtenOn": "2021-03-16T14:12:04Z",
+      "side": 1,
+      "message": "im using prebuilt vendor",
+      "parentUuid": "691af99f_b9cf274d",
+      "revId": "362ccfe042039040e55e8063c98d702b73c7af58",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
     }
   ]
 }
