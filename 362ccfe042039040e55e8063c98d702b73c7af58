@@ -68,6 +68,24 @@
       "message": "Fine on bery",
       "revId": "362ccfe042039040e55e8063c98d702b73c7af58",
       "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "23151e26_a60081e7",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000126
+      },
+      "writtenOn": "2021-03-17T10:48:08Z",
+      "side": 1,
+      "message": "OK so this change won\u0027t affect you.",
+      "parentUuid": "83b28d7d_62d0b14b",
+      "revId": "362ccfe042039040e55e8063c98d702b73c7af58",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
     }
   ]
 }
