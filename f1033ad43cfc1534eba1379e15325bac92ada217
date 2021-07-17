@@ -16,6 +16,23 @@
       "message": "Verified on polaris.",
       "revId": "f1033ad43cfc1534eba1379e15325bac92ada217",
       "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "7b960b9a_5893c889",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000027
+      },
+      "writtenOn": "2021-07-17T14:29:58Z",
+      "side": 1,
+      "message": "works fine on beryllium",
+      "revId": "f1033ad43cfc1534eba1379e15325bac92ada217",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
     }
   ]
 }
