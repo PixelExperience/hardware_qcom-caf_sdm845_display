@@ -906,6 +906,7 @@ DisplayError DisplayBase::SetColorMode(const std::string &color_mode) {
       error = color_mgr_->ColorMgrGetActiveMode(&color_mode_before_p3_);
       if (error != kErrorNone) {
         DLOGW("Failed to get active color mode");
+        color_mode_before_p3_ = color_mode;
       }
       error = SetColorModeInternal(color_mode);
     } else if (color_gamut == kSrgb) {
