@@ -596,6 +596,10 @@ void HWDeviceDRM::PopulateHWPanelInfo() {
            connector_info_.panel_name.c_str());
 
   uint32_t index = current_mode_index_;
+  if (index >= display_attributes_.size()) {
+    DLOGE("Invalid mode index %d mode size %d", index, UINT32(display_attributes_.size()));
+    return;
+  }
   hw_panel_info_.split_info.left_split = display_attributes_[index].x_pixels;
   if (display_attributes_[index].is_device_split) {
     hw_panel_info_.split_info.left_split = hw_panel_info_.split_info.right_split =
