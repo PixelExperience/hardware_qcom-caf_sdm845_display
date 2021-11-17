@@ -438,9 +438,16 @@ DisplayError HWDeviceDRM::Init() {
   drm_mgr_intf_->GetConnectorInfo(token_.conn_id, &connector_info_);
   hw_info_intf_->GetHWResourceInfo(&hw_resource_);
 
+  DisplayError error = kErrorNone;
   InitializeConfigs();
-  PopulateHWPanelInfo();
-  UpdateMixerAttributes();
+  error = PopulateHWPanelInfo();
+  if (error != kErrorNone) {
+    return error;
+  }
+  error = UpdateMixerAttributes();
+  if (error != kErrorNone) {
+    return error;
+  }
 
   // TODO(user): In future, remove has_qseed3 member, add version and pass version to constructor
   if (hw_resource_.has_qseed3) {
@@ -589,7 +596,7 @@ DisplayError HWDeviceDRM::PopulateDisplayAttributes(uint32_t index) {
   return kErrorNone;
 }
 
-void HWDeviceDRM::PopulateHWPanelInfo() {
+DisplayError HWDeviceDRM::PopulateHWPanelInfo() {
   hw_panel_info_ = {};
 
   snprintf(hw_panel_info_.panel_name, sizeof(hw_panel_info_.panel_name), "%s",
@@ -598,7 +605,7 @@ void HWDeviceDRM::PopulateHWPanelInfo() {
   uint32_t index = current_mode_index_;
   if (index >= display_attributes_.size()) {
     DLOGE("Invalid mode index %d mode size %d", index, UINT32(display_attributes_.size()));
-    return;
+    return kErrorParameters;
   }
   hw_panel_info_.split_info.left_split = display_attributes_[index].x_pixels;
   if (display_attributes_[index].is_device_split) {
@@ -683,6 +690,7 @@ void HWDeviceDRM::PopulateHWPanelInfo() {
         hw_panel_info_.split_info.right_split);
   DLOGI("Panel Transfer time = %d us", hw_panel_info_.transfer_time_us);
   DLOGI("Dynamic Bit Clk Support = %d", hw_panel_info_.dyn_bitclk_support);
+  return kErrorNone;
 }
 
 DisplayError HWDeviceDRM::GetDisplayIdentificationData(uint8_t *out_port, uint32_t *out_data_size,
@@ -805,8 +813,15 @@ DisplayError HWDeviceDRM::SetDisplayAttributes(uint32_t index) {
   }
 
   current_mode_index_ = index;
-  PopulateHWPanelInfo();
-  UpdateMixerAttributes();
+  DisplayError error = kErrorNone;
+  error = PopulateHWPanelInfo();
+  if (error != kErrorNone) {
+    return error;
+  }
+  error = UpdateMixerAttributes();
+  if (error != kErrorNone) {
+    return error;
+  }
 
   DLOGI("Display attributes[%d]: WxH: %dx%d, DPI: %fx%f, FPS: %d, LM_SPLIT: %d, V_BACK_PORCH: %d," \
         " V_FRONT_PORCH: %d, V_PULSE_WIDTH: %d, V_TOTAL: %d, H_TOTAL: %d, CLK: %dKHZ," \
@@ -1670,15 +1685,19 @@ void HWDeviceDRM::GetDRMDisplayToken(sde_drm::DRMDisplayToken *token) const {
   *token = token_;
 }
 
-void HWDeviceDRM::UpdateMixerAttributes() {
+DisplayError HWDeviceDRM::UpdateMixerAttributes() {
   uint32_t index = current_mode_index_;
-
+  if (index >= display_attributes_.size()) {
+    DLOGE("Invalid mode index %d mode size %d", index, UINT32(display_attributes_.size()));
+    return kErrorParameters;
+  }
   mixer_attributes_.width = display_attributes_[index].x_pixels;
   mixer_attributes_.height = display_attributes_[index].y_pixels;
   mixer_attributes_.split_left = display_attributes_[index].is_device_split
                                      ? hw_panel_info_.split_info.left_split
                                      : mixer_attributes_.width;
   DLOGI("Mixer WxH %dx%d for %s", mixer_attributes_.width, mixer_attributes_.height, device_name_);
+  return kErrorNone;
 }
 
 void HWDeviceDRM::SetSecureConfig(const LayerBuffer &input_buffer, DRMSecureMode *fb_secure_mode,

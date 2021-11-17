@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -180,10 +180,14 @@ DisplayError HWTVDRM::Standby() {
   return kErrorNone;
 }
 
-void HWTVDRM::PopulateHWPanelInfo() {
+DisplayError HWTVDRM::PopulateHWPanelInfo() {
   hw_panel_info_ = {};
 
-  HWDeviceDRM::PopulateHWPanelInfo();
+  DisplayError error = kErrorNone;
+  error = HWDeviceDRM::PopulateHWPanelInfo();
+  if (error != kErrorNone) {
+    return error;
+  }
   hw_panel_info_.hdr_enabled = connector_info_.ext_hdr_prop.hdr_supported;
   hw_panel_info_.hdr_metadata_type_one = connector_info_.ext_hdr_prop.hdr_metadata_type_one;
   hw_panel_info_.hdr_eotf = connector_info_.ext_hdr_prop.hdr_eotf;
@@ -194,6 +198,7 @@ void HWTVDRM::PopulateHWPanelInfo() {
         hw_panel_info_.hdr_enabled ? "HDR" : "Non-HDR", hw_panel_info_.hdr_metadata_type_one,
         hw_panel_info_.hdr_eotf, hw_panel_info_.peak_luminance, hw_panel_info_.blackness_level,
         hw_panel_info_.average_luminance);
+  return kErrorNone;
 }
 
 DisplayError HWTVDRM::Commit(HWLayers *hw_layers) {
