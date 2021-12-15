@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -104,7 +104,7 @@ class HWDeviceDRM : public HWInterface {
   virtual DisplayError GetMixerAttributes(HWMixerAttributes *mixer_attributes);
   virtual void InitializeConfigs();
   virtual DisplayError DumpDebugData() { return kErrorNone; }
-  virtual void PopulateHWPanelInfo();
+  virtual DisplayError PopulateHWPanelInfo();
   virtual DisplayError SetDynamicDSIClock(uint64_t bit_clk_rate);
   virtual DisplayError GetDynamicDSIClock(uint64_t *bit_clk_rate);
   virtual DisplayError GetDisplayIdentificationData(uint8_t *out_port, uint32_t *out_data_size,
@@ -125,7 +125,7 @@ class HWDeviceDRM : public HWInterface {
   DisplayError PopulateDisplayAttributes(uint32_t index);
   void GetHWDisplayPortAndMode();
   bool EnableHotPlugDetection(int enable);
-  void UpdateMixerAttributes();
+  DisplayError UpdateMixerAttributes();
   void SetSolidfillStages();
   void AddSolidfillStage(const HWSolidfillStage &sf, uint32_t plane_alpha);
   void SetBlending(const LayerBlending &source, sde_drm::DRMBlendType *target);
