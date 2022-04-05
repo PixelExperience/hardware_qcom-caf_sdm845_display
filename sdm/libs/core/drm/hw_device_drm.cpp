@@ -489,6 +489,7 @@ void HWDeviceDRM::InitializeConfigs() {
   for (uint32_t mode_index = 0; mode_index < connector_info_.modes.size(); mode_index++) {
       if (connector_info_.modes[mode_index].mode.type & DRM_MODE_TYPE_PREFERRED) {
         current_mode_index_ = mode_index;
+        DLOGI("Preferred mode index = %d",mode_index);
         break;
       }
   }

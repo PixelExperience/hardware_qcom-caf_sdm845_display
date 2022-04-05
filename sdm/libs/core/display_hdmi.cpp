@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2014 - 2018, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2014 - 2018, 2020 - 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted
 * provided that the following conditions are met:
@@ -73,13 +73,16 @@ DisplayError DisplayHDMI::Init() {
   uint32_t active_mode_index = 0;
   std::ifstream res_file;
   DisplayInterfaceFormat pref_format = kFormatNone;
-
+  char pref_mode_prop[32] = "0";
+  Debug::GetProperty(HDMI_USE_PREFERRED_MODE, pref_mode_prop);
+  int preferred_mode_prop = atoi(pref_mode_prop);
+  DLOGI("Use preferred mode = %d", preferred_mode_prop);
   res_file.open("/vendor/resolutions.txt");
-  if (res_file) {
+  if (res_file && preferred_mode_prop == 0) {
     DLOGI("Getting best resolution from file");
     active_mode_index = GetBestConfigFromFile(res_file, &pref_format);
     res_file.close();
-  } else {
+  } else if (preferred_mode_prop == 0) {
     char value[64] = "0";
     DLOGI("Computing best resolution");
     Debug::GetProperty(HDMI_S3D_MODE_PROP, value);
@@ -90,8 +93,10 @@ DisplayError DisplayHDMI::Init() {
       active_mode_index = GetBestConfig(kS3DModeNone);
     }
   }
-
-  error = hw_intf_->SetDisplayAttributes(active_mode_index);
+  if (preferred_mode_prop == 0) {
+    DLOGI("Setting active mode index = %d",active_mode_index);
+    error = hw_intf_->SetDisplayAttributes(active_mode_index);
+  }
   if (error != kErrorNone) {
     HWInterface::Destroy(hw_intf_);
     return error;
